@@ -3,9 +3,9 @@
 #define pino_trigger 5
 #define pino_echo 4
 
-#define PIN_RED 12
+#define PIN_RED 10
 #define PIN_YELLOW 11
-#define PIN_GREEN 10
+#define PIN_GREEN 12
 
 #define MIN_OPEN_SEMAPHORE 10000
 #define CLOSED_SEMAPHORE_TIME 4000
