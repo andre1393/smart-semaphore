@@ -1,89 +1,55 @@
+#include <Semaphore.h>
+#include <PedestrianSensor.h>
 #include <Ultrasonic.h>
 
-#define pino_trigger 5
-#define pino_echo 4
+#define pino_trigger 4
+#define pino_echo 5
 
-#define PIN_RED 10
+#define car1_trigger 6
+#define car1_echo 7
+
+#define PIN_RED 13
 #define PIN_YELLOW 11
 #define PIN_GREEN 12
+
+#define GREEN_MILLIS 2000
+#define RED_MILLIS 3000
+#define YELLOW_MILLIS 2000
 
 #define MIN_OPEN_SEMAPHORE 10000
 #define CLOSED_SEMAPHORE_TIME 4000
 #define YELLOW_TIME 2000
 
-int hasPedestrian;
-unsigned long openTimeElapsed;
-unsigned long lastTimeOpen;
-boolean isSemaphoreOpen;
+#define PEDESTRIAN_DISTANCE_THRESHOLD 50
 
-//Inicializa o sensor nos pinos definidos acima
+Semaphore semaphore(PIN_GREEN, PIN_RED, PIN_YELLOW);
+PedestrianSensor pedestrianSensor(pino_trigger, pino_echo, PEDESTRIAN_DISTANCE_THRESHOLD);
+
 Ultrasonic ultrasonic(pino_trigger, pino_echo);
+long lastTimeOpen;
+bool hasPedestrian;
 
 void setup() {
   Serial.begin(9600);
   Serial.println("Lendo dados do sensor...");
   
-  pinMode(PIN_RED, OUTPUT);
-  pinMode(PIN_YELLOW, OUTPUT);
-  pinMode(PIN_GREEN, OUTPUT);
-
-  openSemaphore();
+  lastTimeOpen = millis();
   hasPedestrian = false;
-  openTimeElapsed = 0;
-  lastTimeOpen = 0;
+
+  semaphore.open();
+  
 }
 
 void loop() {
-  hasPedestrian = hasPedestrian ? true : checkPedestrian();
-
-  if(isSemaphoreOpen && hasPedestrian){
-    if((millis() - lastTimeOpen) > MIN_OPEN_SEMAPHORE){
-      hasPedestrian = false;
-      closeSemaphore();
-      delay(CLOSED_SEMAPHORE_TIME);
-      openSemaphore();
-    }
+  hasPedestrian = hasPedestrian ? true : pedestrianSensor.checkPedestrian();
+  Serial.println(pedestrianSensor.getDistanceCM());
+  if(millis() - lastTimeOpen > MIN_OPEN_SEMAPHORE && hasPedestrian){
+    hasPedestrian = false;
+    semaphore.warning();
+    delay(YELLOW_MILLIS);
+    semaphore.close();
+    delay(CLOSED_SEMAPHORE_TIME);
+    semaphore.open();
+    lastTimeOpen = millis();
   }
-}
-
-boolean checkPedestrian() {
-  float cmMsec;
-  long microsec = ultrasonic.timing();
-  cmMsec = ultrasonic.convert(microsec, Ultrasonic::CM);
-
-  //Exibe informacoes no serial monitor
-  Serial.print("Distancia em cm: ");
-  Serial.println(cmMsec);
-
-  delay(200);
-  
-  if(cmMsec < 15){
-    return true;
-  } else {
-    return false;
-  }
-}
-
-void turnOn(int on) {
-  turnAllOff();
-  digitalWrite(on, HIGH);
-}
-
-void turnAllOff(){
-  digitalWrite(PIN_RED, LOW);
-  digitalWrite(PIN_YELLOW, LOW);
-  digitalWrite(PIN_GREEN, LOW);
-}
-
-void openSemaphore(){
-  isSemaphoreOpen = true;
-  turnOn(PIN_GREEN);
-  lastTimeOpen = millis();
-}
-
-void closeSemaphore(){
-  isSemaphoreOpen = false;
-  turnOn(PIN_YELLOW);
-  delay(YELLOW_TIME);
-  turnOn(PIN_RED);
 }
